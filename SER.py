@@ -1,8 +1,7 @@
 import socket
 import threading
 import sys
-import signal # Allow socket destruction on Ctrl+C
-
+ 
 
 
 class server:
@@ -61,7 +60,7 @@ class server:
         header = header + 'Connection Closed \n'
 
         return header
-    connections =[]   #for connections empty list
+
     def incoming(self):
         self.socket.listen(5)
         while True:
