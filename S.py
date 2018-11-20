@@ -1,108 +1,135 @@
 import socket
+import signal # Allow socket destruction on Ctrl+C
+import sys
+import time
 import threading
 
+class WebServer(object):
+    """
+    Class for describing simple HTTP server objects
+    """
 
-HOST, PORT = '0.0.0.0', 9000
+    def __init__(self, port=8080):
+        self.host = socket.gethostname().split('.')[0] # Default to any avialable network interface
+        self.port = port
+        self.content_dir = 'web' # Directory where webpage files are stored
 
-#https://docs.python.org/2/howto/sockets.html
+    def start(self):
+        """
+        Attempts to create and bind a socket to launch the server
+        """
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        try:
+            print("Starting server on {host}:{port}".format(host=self.host, port=self.port))
+            self.socket.bind((self.host, self.port))
+            print("Server started on port {port}.".format(port=self.port))
+
+        except Exception as e:
+            print("Error: Could not bind to port {port}".format(port=self.port))
+            self.shutdown()
+            sys.exit(1)
+
+        self._listen() # Start listening for connections
+
+    def shutdown(self):
+        """
+        Shuts down the server
+        """
+        try:
+            print("Shutting down server")
+            s.socket.shutdown(socket.SHUT_RDWR)
+
+        except Exception as e:
+            pass # Pass if socket is already closed
+
+    def _generate_headers(self, response_code):
+        """
+        Generate HTTP response headers.
+        Parameters:
+            - response_code: HTTP response code to add to the header. 200 and 404 supported
+        Returns:
+            A formatted HTTP header for the given response_code
+        """
+        header = ''
+        if response_code == 200:
+            header += 'HTTP/1.1 200 OK\n'
+        elif response_code == 404:
+            header += 'HTTP/1.1 404 Not Found\n'
+
+        time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
+        header += 'Date: {now}\n'.format(now=time_now)
+        header += 'Server: Simple-Python-Server\n'
+        header += 'Connection: close\n\n' # Signal that connection will be closed after completing the request
+        return header
+
+    def _listen(self):
+        """
+        Listens on self.port for any incoming connections
+        """
+        self.socket.listen(5)
+        while True:
+            (client, address) = self.socket.accept()
+            client.settimeout(60)
+            print("Recieved connection from {addr}".format(addr=address))
+            threading.Thread(target=self._handle_client, args=(client, address)).start()
+
+    def _handle_client(self, client, address):
+        """
+        Main loop for handling connecting clients and serving files from content_dir
+        Parameters:
+            - client: socket client from accept()
+            - address: socket address from accept()
+        """
+        PACKET_SIZE = 1024
+        while True:
+            print("CLIENT",client)
+            data = client.recv(PACKET_SIZE).decode() # Recieve data packet from client and decode
+
+            if not data: break
+
+            request_method = data.split(' ')[0]
+            print("Method: {m}".format(m=request_method))
+            print("Request Body: {b}".format(b=data))
+
+            if request_method == "GET" or request_method == "HEAD":
+                # Ex) "GET /index.html" split on space
+                file_requested = data.split(' ')[1]
+
+                # If get has parameters ('?'), ignore them
+                file_requested =  file_requested.split('?')[0]
+
+                if file_requested == "/":
+                    file_requested = "/index.html"
+
+                filepath_to_serve = self.content_dir + file_requested
+                print("Serving web page [{fp}]".format(fp=filepath_to_serve))
+
+                # Load and Serve files content
+                try:
+                    f = open(filepath_to_serve, 'rb')
+                    if request_method == "GET": # Read only for GET
+                        response_data = f.read()
+                    f.close()
+                    response_header = self._generate_headers(200)
+
+                except Exception as e:
+                    print("File not found. Serving 404 page.")
+                    response_header = self._generate_headers(404)
+
+                    if request_method == "GET": # Temporary 404 Response Page
+                        response_data = b"<html><body><center><h1>Error 404: File not found</h1></center><p>Head back to <a href="/">dry land</a>.</p></body></html>"
+
+                response = response_header.encode()
+                if request_method == "GET":
+                    response += response_data
+
+                client.send(response)
+                client.close()
+                break
+            else:
+                print("Unknown HTTP request method {method}".format(method=request_method))
 
 
-'''
-
-    serversocket = socket.socket(
-        socket.AF_INET, socket.SOCK_STREAM)
-    serversocket.bind((socket.gethostname(), 80))
-    serversocket.listen(5)
-
-'''
-
-s = socket.socket(socket.AF_INET,socket.SOCK_STREAM) # socket library, socket method (pass socket method)
-
-
-
-#s.connect(("",9000))  #s.connect(addr) makes a connection
-s.bind((HOST,PORT)) #   only visible within the same machine
-                    # Tuple (() )
-#s.bind(('', 80)) specifies that the socket is reachable by any address the machine happens to have.
-
-s.listen(5)
-
-print ('Serving HTTP on port %s ...' % PORT)
-# while 1: # I think python V-2
-
-
-''' 
-    # accept connections from outside
-    (clientsocket, address) = serversocket.accept()
-    # now do something with the clientsocket
-    # in this case, we'll pretend this is a threaded server
-    ct = client_thread(clientsocket)
-    ct.run()
-'''
-#s.settimeout(10.0)  #optional timeout
-                    #s.settimeout(None)     
-
-
-connections =[]   #for connections empty list
-
-def handler (con,add):
-    global connections
-    while True:
-        request = con.recv(1024) #data recive 1024 byts
-
-        for connect in connections:
-            connect.send(bytes(request))
-
-        if not request:  
-            connections.remove(con) 
-            con.close()
-            break  #if no data, loop will break 
-
-
-
-# con = connection socket , a = address
-
-
-
-while True:
-    con,add = s.accept()
-    
-    conThread = threading.Thread(target=handler , args=(con,add))   #threading library thread method
-    conThread.daemon = True #wont end until all the threads are done
-    conThread.start() #start connetcion
-
-    connections.append(con)
-    print(connections)
-
-
-
-    
-    request = con.recv(1024)
-    print (request)
-
-
-
-"""
-    c.sendall(http_response) #can use send()
-    c.close()
-
-
-
-'''
-
-    s.send("GET /index.html HTTP/1.0\n\n")   #send request
-    data = s.recv(10000)    # get request
-    s.close()   #shuts down the connection
-
-'''
-#s.gethostname()
-fragments = []
-
-while not done :
-    chunk = s.recv(1024)
-    if not chunk:
-        break
-    fragments.append(chunk)
-
-message = " ".join(fragments)
-"""
+server = WebServer(8080)
+server.start()

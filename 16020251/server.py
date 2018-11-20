@@ -5,7 +5,7 @@ import signal # Allow socket destruction on Ctrl+C
 
 
 HOST = '127.0.0.1'
-PORT = 8090
+PORT = 9090
 #https://docs.python.org/2/howto/sockets.html
 '''
            serversocket = socket.socket(
@@ -135,13 +135,13 @@ def handler (con, request_method):
         #print(response)
         # if request_method == "GET":
         response = response + response_data
-        #print('a \n \n\n\n')
+        print('a \n \n\n\n')
 
         #response = '<html><body><center><h3>Error 404: File not found</h3><p>Python HTTP Server</p></center></body></html>'.encode('utf-8')
  
         print(response)
         con.send(response)
-        #print('test \n \n\n\n')
+        print('test \n \n\n\n')
 
         con.close()
         break

@@ -1,0 +1,13 @@
+GET index.html?id=1213
+http 200 
+
+list = ['GET','index.html?id=1213','200'.......]
+
+'index.html?id=1213'
+
+['index.html','id=1213']
+
+'index'
+
+['index']
+
